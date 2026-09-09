@@ -164,8 +164,10 @@ function responsiveChecker(node, rules) {
 // 값이 0이고 변수에 연결도 안 돼 있으면 "그냥 안 쓴 것"(디자이너가 일부러
 // 토큰을 뺀 게 아니라 애초에 간격/패딩이 필요 없는 레이어)일 확률이 매우 높아서
 // 검사 대상에서 제외합니다 — 안 그러면 아이콘 래퍼 같은 구조용 프레임까지 전부
-// "위반"으로 잡혀서 진짜 문제를 찾기 어려워집니다. 0을 일부러 토큰(spacing-sem/0)에
-// 연결해둔 경우는 의미 있는 결정이라 그대로 pass로 보여줍니다.
+// "위반"으로 잡혀서 진짜 문제를 찾기 어려워집니다. 이미 토큰에 연결되어 있는
+// 속성(문제 없음)은 결과에 아예 넣지 않습니다 — "이미 연결되어 있습니다" 같은
+// 확인용 pass 메시지가 속성 개수(최대 5개)만큼 계속 쌓여서 노이즈가 심했습니다.
+// 결과에 안 뜨는 것 자체가 "그 속성은 문제없다"는 뜻입니다.
 const SPACING_PROPERTIES = ["itemSpacing", "paddingLeft", "paddingRight", "paddingTop", "paddingBottom"];
 
 function spacingTokenChecker(node, rules) {
@@ -184,12 +186,7 @@ function spacingTokenChecker(node, rules) {
     const isBound = !!(node.boundVariables && node.boundVariables[property]);
 
     if (isBound) {
-      results.push({
-        status: "pass",
-        property: property,
-        value: value,
-        message: `${property}이(가) 이미 토큰에 연결되어 있습니다.`,
-      });
+      // 이미 토큰에 연결되어 있음 = 문제 없음 → 노이즈를 줄이기 위해 결과에 넣지 않음
       return;
     }
 

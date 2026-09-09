@@ -14,7 +14,7 @@ figma.showUI(__html__, { width: 380, height: 600 });
 // rules.json의 값을 아래 RULES 객체로 그대로 미러링해서 사용합니다.
 // rules.json 값을 바꾸면 이 객체도 함께 수정해주세요.
 const RULES = {
-  spacingTokenCollection: "V4/Spacing",
+  spacingTokenCollection: "spacing",
   v4ComponentLibraryKey: "dummy-v4-key",
   marketingComponentLibraryKey: "dummy-marketing-key",
   requiredPluginDataKeys: ["url", "cxmId"],
@@ -161,16 +161,28 @@ function responsiveChecker(node, rules) {
 // 연결되어 있는지 확인합니다. raw 값이면 fail이고, SPACING_TOKEN_MAP에서
 // 정확히 같은 픽셀 값의 토큰을 찾으면 suggestedTokenName/suggestedVariableId를
 // 함께 실어줍니다(못 찾으면 두 필드 다 넣지 않습니다).
+// 값이 0이고 변수에 연결도 안 돼 있으면 "그냥 안 쓴 것"(디자이너가 일부러
+// 토큰을 뺀 게 아니라 애초에 간격/패딩이 필요 없는 레이어)일 확률이 매우 높아서
+// 검사 대상에서 제외합니다 — 안 그러면 아이콘 래퍼 같은 구조용 프레임까지 전부
+// "위반"으로 잡혀서 진짜 문제를 찾기 어려워집니다. 0을 일부러 토큰(spacing-sem/0)에
+// 연결해둔 경우는 의미 있는 결정이라 그대로 pass로 보여줍니다.
 const SPACING_PROPERTIES = ["itemSpacing", "paddingLeft", "paddingRight", "paddingTop", "paddingBottom"];
 
 function spacingTokenChecker(node, rules) {
   const results = [];
 
   SPACING_PROPERTIES.forEach((property) => {
+    // itemSpacing은 자식이 2개 이상이어야 화면에 실제로 영향을 줍니다.
+    // (자식이 0~1개면 값이 뭐든 아무 차이가 없어서 검사할 의미가 없음)
+    if (property === "itemSpacing" && (!node.children || node.children.length < 2)) {
+      return;
+    }
+
     const value = node[property];
     if (typeof value !== "number") return;
 
     const isBound = !!(node.boundVariables && node.boundVariables[property]);
+
     if (isBound) {
       results.push({
         status: "pass",
@@ -178,6 +190,11 @@ function spacingTokenChecker(node, rules) {
         value: value,
         message: `${property}이(가) 이미 토큰에 연결되어 있습니다.`,
       });
+      return;
+    }
+
+    if (value === 0) {
+      // 연결 안 된 raw 0 — 노이즈라서 결과에 아예 넣지 않음
       return;
     }
 
@@ -283,12 +300,15 @@ async function findLibraryVariableKeyByName(collectionName, variableName) {
 
   const collection = collections.find((c) => c.name === collectionName);
   if (!collection) {
+    const availableNames = collections.map((c) => c.name).join(", ") || "(이 파일에 활성화된 라이브러리 컬렉션이 하나도 없음)";
     return {
       key: null,
       reason:
         '"' +
         collectionName +
-        '" 라이브러리 컬렉션을 찾을 수 없음 (이 파일의 Assets 패널에 해당 라이브러리가 활성화되어 있는지 확인해주세요)',
+        '" 라이브러리 컬렉션을 찾을 수 없음. 이 파일에서 실제로 활성화된 컬렉션: [' +
+        availableNames +
+        "] — rules.json의 spacingTokenCollection 값을 이 중 정확한 이름으로 맞춰주세요.",
     };
   }
 

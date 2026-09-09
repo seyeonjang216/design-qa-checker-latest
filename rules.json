@@ -1,5 +1,5 @@
 {
-  "spacingTokenCollection": "V4/Spacing",
+  "spacingTokenCollection": "spacing",
   "v4ComponentLibraryKey": "dummy-v4-key",
   "marketingComponentLibraryKey": "dummy-marketing-key",
   "requiredPluginDataKeys": ["url", "cxmId"],

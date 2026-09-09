@@ -159,7 +159,32 @@
   .layer-checks { padding: 4px 4px 2px 28px; }
   .check-row { display: flex; gap: 6px; align-items: flex-start; padding: 2px 0; font-size: 10px; color: var(--muted); }
   .check-row .dot { margin-top: 3px; }
+  .check-body { flex: 1; min-width: 0; }
   .check-category { font-weight: 600; color: var(--text); flex-shrink: 0; }
+  .check-suggestion {
+    margin-top: 4px;
+    padding: 5px 7px;
+    background: #f3f4f6;
+    border-radius: 5px;
+  }
+  .check-suggestion-text { color: var(--text); }
+  .check-suggestion-actions { margin-top: 4px; display: flex; gap: 6px; align-items: center; }
+  .check-btn {
+    padding: 3px 8px;
+    font-size: 10px;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .check-btn:hover { background: var(--accent); color: white; }
+  .check-btn:disabled { opacity: 0.5; cursor: default; background: white; color: var(--accent); }
+  .check-btn.secondary { border-color: var(--border); color: var(--muted); }
+  .check-btn.secondary:hover { background: #f3f4f6; color: var(--text); }
+  .check-apply-status { margin-top: 4px; }
+  .check-apply-status.success { color: var(--pass); }
+  .check-apply-status.error { color: var(--fail); }
   .layer-children {
     margin-left: 13px;
     padding-left: 10px;
@@ -200,6 +225,14 @@
   let collapsedIds = new Set();
   let lastResults = [];
 
+  // "이 토큰으로 적용" 버튼 클릭 결과를 저장. 키: `${nodeId}::${property}`
+  // 값: { state: 'pending' | 'success' | 'error', message?: string }
+  let applyResults = {};
+
+  function applyKey(nodeId, property) {
+    return nodeId + '::' + property;
+  }
+
   runBtn.addEventListener('click', () => {
     errorContainer.innerHTML = '';
     parent.postMessage({ pluginMessage: { type: 'run-check' } }, '*');
@@ -221,6 +254,14 @@
 
     if (msg.type === 'results') {
       renderResults(msg.results);
+    }
+
+    if (msg.type === 'apply-token-fix-result') {
+      const key = applyKey(msg.nodeId, msg.property);
+      applyResults[key] = msg.success
+        ? { state: 'success' }
+        : { state: 'error', message: msg.message || '자동 적용에 실패했습니다.' };
+      renderResults(lastResults);
     }
   };
 
@@ -283,6 +324,10 @@
         categoryLabel: r.categoryLabel,
         status: r.status,
         message: r.message,
+        property: r.property,
+        value: r.value,
+        suggestedTokenName: r.suggestedTokenName,
+        suggestedVariableId: r.suggestedVariableId,
       });
     });
 
@@ -334,8 +379,11 @@
         (c) => `
         <div class="check-row">
           <span class="dot dot-${c.status}"></span>
-          <span class="check-category">${escapeHtml(c.categoryLabel)}</span>
-          <span>${escapeHtml(c.message)}</span>
+          <div class="check-body">
+            <span class="check-category">${escapeHtml(c.categoryLabel)}</span>
+            <span>${escapeHtml(c.message)}</span>
+            ${renderSuggestion(group.id, c)}
+          </div>
         </div>
       `
       )
@@ -370,7 +418,118 @@
     `;
   }
 
+  function renderSuggestion(nodeId, c) {
+    if (!c.suggestedTokenName) return '';
+
+    const key = applyKey(nodeId, c.property);
+    const applyState = applyResults[key] || { state: 'idle' };
+    const valueLabel = typeof c.value === 'number' ? ' (' + c.value + 'px)' : '';
+
+    const applyLabel =
+      applyState.state === 'pending' ? '적용 중...' : applyState.state === 'error' ? '다시 시도' : '이 토큰으로 적용';
+
+    const applyButton =
+      '<button class="check-btn" ' +
+      (applyState.state === 'pending' ? 'disabled' : '') +
+      ' data-apply-node-id="' + escapeHtml(nodeId) + '"' +
+      ' data-apply-property="' + escapeHtml(c.property || '') + '"' +
+      ' data-apply-variable-id="' + escapeHtml(c.suggestedVariableId || '') + '"' +
+      ' data-apply-token-name="' + escapeHtml(c.suggestedTokenName) + '">' +
+      applyLabel +
+      '</button>';
+
+    const copyButton =
+      '<button class="check-btn secondary" data-copy-token="' + escapeHtml(c.suggestedTokenName) + '">토큰명 복사</button>';
+
+    let statusHtml = '';
+    let actionsHtml = '';
+
+    if (applyState.state === 'success') {
+      statusHtml = '<div class="check-apply-status success">✓ 토큰이 적용되었습니다.</div>';
+    } else if (applyState.state === 'error') {
+      statusHtml = '<div class="check-apply-status error">' + escapeHtml(applyState.message) + '</div>';
+      actionsHtml = '<div class="check-suggestion-actions">' + applyButton + copyButton + '</div>';
+    } else {
+      actionsHtml = '<div class="check-suggestion-actions">' + applyButton + '</div>';
+    }
+
+    return (
+      '<div class="check-suggestion">' +
+      '<div class="check-suggestion-text">제안: <strong>' +
+      escapeHtml(c.suggestedTokenName) +
+      '</strong>' +
+      valueLabel +
+      '</div>' +
+      actionsHtml +
+      statusHtml +
+      '</div>'
+    );
+  }
+
+  function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+    } else {
+      fallbackCopy(text);
+    }
+  }
+
+  function fallbackCopy(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+    } catch (e) {
+      // 복사 API를 전혀 쓸 수 없는 환경 — 조용히 무시
+    }
+    document.body.removeChild(textarea);
+  }
+
   function attachResultListeners() {
+    resultsEl.querySelectorAll('[data-apply-node-id]').forEach((el) => {
+      el.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const nodeId = el.dataset.applyNodeId;
+        const property = el.dataset.applyProperty;
+        const variableId = el.dataset.applyVariableId;
+        const tokenName = el.dataset.applyTokenName;
+        const key = applyKey(nodeId, property);
+
+        applyResults[key] = { state: 'pending' };
+        renderResults(lastResults);
+
+        parent.postMessage(
+          {
+            pluginMessage: {
+              type: 'apply-token-fix',
+              nodeId: nodeId,
+              property: property,
+              variableId: variableId,
+              tokenName: tokenName,
+            },
+          },
+          '*'
+        );
+      });
+    });
+
+    resultsEl.querySelectorAll('[data-copy-token]').forEach((el) => {
+      el.addEventListener('click', (event) => {
+        event.stopPropagation();
+        copyToClipboard(el.dataset.copyToken);
+        const original = el.textContent;
+        el.textContent = '복사됨!';
+        setTimeout(() => {
+          el.textContent = original;
+        }, 1200);
+      });
+    });
+
+
     resultsEl.querySelectorAll('.layer-toggle:not(.no-children)').forEach((el) => {
       el.addEventListener('click', (event) => {
         event.stopPropagation();

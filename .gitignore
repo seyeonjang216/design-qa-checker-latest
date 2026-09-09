@@ -1,0 +1,11 @@
+# Figma가 실제로 읽는 파일 — code.src.js + tokenMap.local.js를 build-local.py로 합쳐서
+# 로컬에서 생성합니다. 커밋하면 tokenMap.local.js의 실제 값이 그대로 딸려 올라가므로 제외합니다.
+code.js
+
+# 실제 디자인 시스템 spacing 토큰 매핑(진짜 변수 id 포함) — 절대 커밋하지 않습니다.
+tokenMap.local.js
+
+# 실제 디자인 시스템에서 export한 원본 토큰 파일 — 참고용 로컬 자료, 커밋하지 않습니다.
+reference/
+
+.DS_Store

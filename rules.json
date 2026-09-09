@@ -1,0 +1,7 @@
+{
+  "spacingTokenCollection": "V4/Spacing",
+  "v4ComponentLibraryKey": "dummy-v4-key",
+  "marketingComponentLibraryKey": "dummy-marketing-key",
+  "requiredPluginDataKeys": ["url", "cxmId"],
+  "namingPattern": "^[A-Z][a-zA-Z0-9]+(\\d+)?$"
+}

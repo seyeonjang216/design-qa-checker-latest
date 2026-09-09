@@ -1,0 +1,402 @@
+<style>
+  :root {
+    --bg: #ffffff;
+    --text: #1a1a1a;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --accent: #4338ca;
+    --accent-hover: #3730a3;
+    --pass: #15803d;
+    --pass-bg: #f0fdf4;
+    --warn: #b45309;
+    --warn-bg: #fffbeb;
+    --fail: #b91c1c;
+    --fail-bg: #fef2f2;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 12px;
+    color: var(--text);
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+  .header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .header h1 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 2px;
+  }
+  .header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .categories {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    max-height: 150px;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .category-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+  }
+  .category-row label {
+    flex: 1;
+  }
+  .badge-todo {
+    font-size: 9px;
+    color: var(--muted);
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .actions {
+    padding: 10px 16px;
+    flex-shrink: 0;
+  }
+  button.primary {
+    width: 100%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 9px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.primary:hover { background: var(--accent-hover); }
+  .error-box {
+    margin: 0 16px 10px;
+    padding: 8px 10px;
+    background: var(--fail-bg);
+    color: var(--fail);
+    border-radius: 6px;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+  .summary {
+    display: flex;
+    gap: 8px;
+    padding: 0 16px 10px;
+    flex-shrink: 0;
+  }
+  .summary-chip {
+    flex: 1;
+    text-align: center;
+    padding: 6px 4px;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+  .chip-fail { background: var(--fail-bg); color: var(--fail); }
+  .chip-warn { background: var(--warn-bg); color: var(--warn); }
+  .chip-pass { background: var(--pass-bg); color: var(--pass); }
+  .results {
+    padding: 0 16px 16px;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .layer-group { margin-bottom: 4px; }
+  .layer-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .layer-header:hover { border-color: var(--accent); }
+  .layer-toggle {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: var(--muted);
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .layer-toggle:hover { background: #f3f4f6; }
+  .layer-toggle.no-children { visibility: hidden; cursor: default; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-fail { background: var(--fail); }
+  .dot-warn { background: var(--warn); }
+  .dot-pass { background: var(--pass); }
+  .layer-name {
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .layer-type { color: var(--muted); font-size: 10px; flex-shrink: 0; }
+  .layer-hidden-badge {
+    font-size: 9px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .layer-hidden-badge.badge-fail { background: var(--fail-bg); color: var(--fail); }
+  .layer-hidden-badge.badge-warn { background: var(--warn-bg); color: var(--warn); }
+  .layer-checks { padding: 4px 4px 2px 28px; }
+  .check-row { display: flex; gap: 6px; align-items: flex-start; padding: 2px 0; font-size: 10px; color: var(--muted); }
+  .check-row .dot { margin-top: 3px; }
+  .check-category { font-weight: 600; color: var(--text); flex-shrink: 0; }
+  .layer-children {
+    margin-left: 13px;
+    padding-left: 10px;
+    border-left: 1px solid var(--border);
+  }
+  .empty {
+    padding: 40px 16px;
+    text-align: center;
+    color: var(--muted);
+  }
+</style>
+
+<div class="header">
+  <h1>디자인 QA 체커</h1>
+  <p>캔버스에서 프레임을 선택하고 검사를 실행하세요</p>
+</div>
+
+<div class="categories" id="categories"></div>
+
+<div class="actions">
+  <button class="primary" id="run-btn">선택한 프레임 검사하기</button>
+</div>
+
+<div id="error-container"></div>
+<div class="summary" id="summary" style="display:none"></div>
+<div class="results" id="results">
+  <div class="empty">아직 검사 결과가 없어요.<br />프레임을 선택하고 위 버튼을 눌러보세요.</div>
+</div>
+
+<script>
+  const categoriesEl = document.getElementById('categories');
+  const resultsEl = document.getElementById('results');
+  const summaryEl = document.getElementById('summary');
+  const errorContainer = document.getElementById('error-container');
+  const runBtn = document.getElementById('run-btn');
+
+  // 접힌 레이어의 id를 저장. 검사를 다시 돌려도(레이어 id가 그대로면) 접은 상태를 유지합니다.
+  let collapsedIds = new Set();
+  let lastResults = [];
+
+  runBtn.addEventListener('click', () => {
+    errorContainer.innerHTML = '';
+    parent.postMessage({ pluginMessage: { type: 'run-check' } }, '*');
+  });
+
+  window.onmessage = (event) => {
+    const msg = event.data.pluginMessage;
+    if (!msg) return;
+
+    if (msg.type === 'init') {
+      renderCategories(msg.categories);
+    }
+
+    if (msg.type === 'error') {
+      errorContainer.innerHTML = `<div class="error-box">${msg.message}</div>`;
+      summaryEl.style.display = 'none';
+      resultsEl.innerHTML = '<div class="empty">아직 검사 결과가 없어요.<br />프레임을 선택하고 위 버튼을 눌러보세요.</div>';
+    }
+
+    if (msg.type === 'results') {
+      renderResults(msg.results);
+    }
+  };
+
+  function renderCategories(categories) {
+    categoriesEl.innerHTML = categories
+      .map(
+        (c) => `
+        <div class="category-row">
+          <input type="checkbox" checked disabled />
+          <label>${c.label}</label>
+          <span class="badge-todo">준비중</span>
+        </div>
+      `
+      )
+      .join('');
+  }
+
+  function renderResults(results) {
+    lastResults = results;
+
+    const counts = { fail: 0, warn: 0, pass: 0 };
+    results.forEach((r) => counts[r.status]++);
+
+    summaryEl.style.display = 'flex';
+    summaryEl.innerHTML = `
+      <div class="summary-chip chip-fail">위반 ${counts.fail}</div>
+      <div class="summary-chip chip-warn">확인필요 ${counts.warn}</div>
+      <div class="summary-chip chip-pass">통과 ${counts.pass}</div>
+    `;
+
+    if (results.length === 0) {
+      resultsEl.innerHTML = '<div class="empty">선택한 프레임 안에 레이어가 없어요.</div>';
+      return;
+    }
+
+    const tree = buildLayerTree(results);
+    resultsEl.innerHTML = tree.map((group) => renderLayerGroup(group)).join('');
+    attachResultListeners();
+  }
+
+  // 같은 id(같은 레이어)의 검사 결과들을 하나로 묶고, depth를 기준으로
+  // 부모/자식 관계를 복원해 피그마 레이어 패널 같은 트리를 만듭니다.
+  function buildLayerTree(results) {
+    const groupsById = new Map();
+    const order = [];
+
+    results.forEach((r) => {
+      if (!groupsById.has(r.id)) {
+        groupsById.set(r.id, {
+          id: r.id,
+          name: r.name,
+          type: r.type,
+          depth: r.depth || 0,
+          checks: [],
+          children: [],
+        });
+        order.push(r.id);
+      }
+      groupsById.get(r.id).checks.push({
+        categoryLabel: r.categoryLabel,
+        status: r.status,
+        message: r.message,
+      });
+    });
+
+    const roots = [];
+    const stack = [];
+
+    order.forEach((id) => {
+      const group = groupsById.get(id);
+      while (stack.length && stack[stack.length - 1].depth >= group.depth) {
+        stack.pop();
+      }
+      if (stack.length === 0) {
+        roots.push(group);
+      } else {
+        stack[stack.length - 1].children.push(group);
+      }
+      stack.push(group);
+    });
+
+    return roots;
+  }
+
+  function statusRank(status) {
+    return status === 'fail' ? 2 : status === 'warn' ? 1 : 0;
+  }
+
+  function worstStatus(checks) {
+    return checks.reduce((worst, c) => (statusRank(c.status) > statusRank(worst) ? c.status : worst), 'pass');
+  }
+
+  function worstStatusInSubtree(group) {
+    let worst = worstStatus(group.checks);
+    group.children.forEach((child) => {
+      const childWorst = worstStatusInSubtree(child);
+      if (statusRank(childWorst) > statusRank(worst)) worst = childWorst;
+    });
+    return worst;
+  }
+
+  function renderLayerGroup(group) {
+    const hasChildren = group.children.length > 0;
+    const collapsed = collapsedIds.has(group.id);
+    const worst = worstStatus(group.checks);
+    const subtreeWorst = worstStatusInSubtree(group);
+    const showHiddenBadge = hasChildren && collapsed && subtreeWorst !== 'pass';
+
+    const checksHtml = group.checks
+      .map(
+        (c) => `
+        <div class="check-row">
+          <span class="dot dot-${c.status}"></span>
+          <span class="check-category">${escapeHtml(c.categoryLabel)}</span>
+          <span>${escapeHtml(c.message)}</span>
+        </div>
+      `
+      )
+      .join('');
+
+    const childrenHtml = hasChildren
+      ? `<div class="layer-children" ${collapsed ? 'hidden' : ''}>${group.children
+          .map((child) => renderLayerGroup(child))
+          .join('')}</div>`
+      : '';
+
+    return `
+      <div class="layer-group">
+        <div class="layer-header" data-node-id="${group.id}">
+          <span class="layer-toggle${hasChildren ? '' : ' no-children'}" data-toggle-id="${group.id}">${
+      hasChildren ? (collapsed ? '▸' : '▾') : ''
+    }</span>
+          <span class="dot dot-${worst}"></span>
+          <span class="layer-name">${escapeHtml(group.name)}</span>
+          <span class="layer-type">${escapeHtml(group.type)}</span>
+          ${
+            showHiddenBadge
+              ? `<span class="layer-hidden-badge badge-${subtreeWorst}">하위 ${
+                  subtreeWorst === 'fail' ? '위반' : '확인필요'
+                } 있음</span>`
+              : ''
+          }
+        </div>
+        <div class="layer-checks">${checksHtml}</div>
+        ${childrenHtml}
+      </div>
+    `;
+  }
+
+  function attachResultListeners() {
+    resultsEl.querySelectorAll('.layer-toggle:not(.no-children)').forEach((el) => {
+      el.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const id = el.dataset.toggleId;
+        if (collapsedIds.has(id)) {
+          collapsedIds.delete(id);
+        } else {
+          collapsedIds.add(id);
+        }
+        renderResults(lastResults);
+      });
+    });
+
+    resultsEl.querySelectorAll('.layer-header').forEach((el) => {
+      el.addEventListener('click', () => {
+        parent.postMessage(
+          { pluginMessage: { type: 'select-layer', nodeId: el.dataset.nodeId } },
+          '*'
+        );
+      });
+    });
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+</script>
